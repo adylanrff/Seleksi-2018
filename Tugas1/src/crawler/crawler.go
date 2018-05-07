@@ -1,85 +1,96 @@
-package foodCrawler
+package foodcrawler
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"regexp"
 
 	"github.com/anaskhan96/soup"
 )
 
+/*BaseURL the base URL of the USDA Food Composition Databases
+ */
 const BaseURL string = "https://ndb.nal.usda.gov/ndb"
-const FoodsListEndpoint string = "/search/list"
-const FoodDetailsEndpoint string = "/foods/show/"
 
-func parseFoodList(foodText string) Food {
-	productIDPattern := regexp.MustCompile(`\d+\s`)
-	UPCPattern := regexp.MustCompile(`UPC:\s\d+`)
+/*foodListEndpoint the endpoint of the list of foods
+ */
+const foodListEndpoint string = "/search/list"
 
-	productIDIdx := productIDPattern.FindStringSubmatchIndex(foodText)
-	UPCIdx := UPCPattern.FindStringSubmatchIndex(foodText)
+/*FoodDetailEndpoint the food detail endpoint that should be followed by the id of the food
+ */
+const FoodDetailEndpoint string = "/foods/show/"
 
-	productID := foodText[productIDIdx[0]:(productIDIdx[1] - 1)]
-	upc := foodText[UPCIdx[0]:UPCIdx[1]]
-	foodName := foodText[productIDIdx[1]:UPCIdx[0]]
+/*CrawlBigPicture crawls the big picture of the page.
+Concurrently gets the small picture data using goroutine
+*/
+func CrawlBigPicture(linksChannel chan string) {
 
-	foodData := Food{ID: productID, Name: foodName, UPC: upc}
-
-	return foodData
-}
-
-func CrawlBigPicture(linksList chan string, foodList chan Food, foodTexts []soup.Root) {
-
-	for _, food := range foodTexts {
-		foodLink := food.Find("a")
-		foodData := parseFoodList(foodLink.Text())
-		smallPictureLink := BaseURL + FoodDetailsEndpoint + foodData.ID
-
-		linksList <- smallPictureLink
-		foodList <- foodData
-	}
-
-	close(linksList)
-	close(foodList)
-}
-
-func Crawl() {
-	linksList := make(chan string)
-	foodList := make(chan Food)
-	resp, err := soup.Get(BaseURL + FoodsListEndpoint)
+	resp, err := soup.Get(BaseURL + foodListEndpoint)
 	if err != nil {
 		os.Exit(1)
 	}
 
 	doc := soup.HTMLParse(resp)
 	foodTexts := doc.FindAll("td", "style", "font-style:;")
-	go CrawlBigPicture(linksList, foodList, foodTexts)
 
+	for _, food := range foodTexts {
+		foodLink := food.Find("a")
+		linksChannel <- parseFoodLink(foodLink.Text())
+	}
+
+	close(linksChannel)
+}
+
+/*CrawlSmallPicture crawls the details of the food
+Returns the foodDetail struct
+*/
+func CrawlSmallPicture(linksChannel chan string, foodChannel chan Food) {
 	for {
-		link, ok1 := <-linksList
-		food, ok2 := <-foodList
+		link, ok := <-linksChannel
+		if !ok {
+			break
+		}
+		resp, _ := soup.Get(link)
+		doc := soup.HTMLParse(resp)
+		if doc.Error == nil {
+			foodTexts := doc.Find("div", "id", "view-name")
+			if foodTexts.Error == nil {
+				foodData := parseFoodData(foodTexts.Text())
+				foodChannel <- foodData
+			}
+		}
+	}
 
-		if !ok1 || !ok2 {
+	close(foodChannel)
+}
+
+/*Crawl crawl the USDA website
+ */
+func Crawl() {
+
+	linksChannel := make(chan string)
+	foodChannel := make(chan Food)
+
+	var foodList []Food
+
+	go CrawlBigPicture(linksChannel)
+	go CrawlSmallPicture(linksChannel, foodChannel)
+
+	for i := 1; ; i++ {
+		food, ok := <-foodChannel
+		if !ok {
 			break
 		} else {
-			fmt.Println(link)
-			fmt.Println(food)
+			fmt.Println("Link-", i, " parsed")
+			foodList = append(foodList, food)
 		}
-
 	}
-	// fmt.Println(linksList[1].Text)
-	// for _, food := range foodLists {
-	// 	fmt.Println(food)
-	// }
-	// links := doc.Find("div", "id", "comicLinks").FindAll("a")
-	// for _, link := range links {
-	// 	linkElmt := Link{Text: link.Text(), Link: link.Attrs()["href"]}
-	// 	linksList = append(linksList, linkElmt)
-	// // }
 
-	// out, _ := json.Marshal(linksList)
-	// var linkz []Link
+	out, _ := json.Marshal(foodList)
+	err := ioutil.WriteFile("output.json", out, 0644)
 
-	// json.Unmarshal(out, &linkz)
-	// fmt.Println(linkz[0].Link)
+	if err != nil {
+		os.Exit(1)
+	}
 }
