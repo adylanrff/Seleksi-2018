@@ -124,5 +124,10 @@ Returns an array of *Food* object that contains the *id, food_name, upc, nutrien
 
 
 ## Reference
+[Go Soup - Beautiful Soup for Go](https://github.com/anaskhan96/soup)
+
 
 ## Author
+
+<h3> Adylan Roaffa Ilmy </h3>
+<h3> 13516016 </h3>
