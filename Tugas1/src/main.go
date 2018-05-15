@@ -1,10 +1,17 @@
 package main
 
 import (
-	. "./crawler"
+	"fmt"
+
+	. "./foodcrawler"
 )
 
-func main() {
+const DirPath = "data/"
 
-	Crawl()
+func main() {
+	recordNumber := 75
+	filename := DirPath + "output.json"
+	foodList := Crawl(filename, "banana", recordNumber)
+
+	fmt.Printf("Parsed %v data \n", len(foodList))
 }
