@@ -2,7 +2,7 @@
 
 ## Description
 
-A web scrapper that scraps foods data from **USDA Database**. The scrapped data contains the nutrients of the food per 100 g. Returns the **JSON** object of the parsed data from the website. 
+A web scrapper that scraps foods data from [**USDA Database**](https://ndb.nal.usda.gov/ndb/search/list). The scrapped data contains the nutrients of the food per 100 g. Returns the **JSON** object of the parsed data from the website. 
 
 See JSON Structure for further details.
 
