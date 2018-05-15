@@ -64,6 +64,23 @@ Preprocessing contohnya :
 
 ## How to use
 
+To compile the program:
+```
+$ make build
+```
+The program then compiled with name *foodCrawler*
+
+To run the program:
+```
+$ make run
+```
+
+Or (if you have compiled it before) : 
+```
+$ ./foodCrawler
+```
+
+
 
 
 
